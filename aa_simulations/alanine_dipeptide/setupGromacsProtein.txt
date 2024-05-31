@@ -1,0 +1,49 @@
+
+/*************************************************************/
+source /usr/local/gromacs/bin/GMXRC
+/*************************************************************/
+
+# select force field = Amber03
+gmx pdb2gmx -f C5.pdb -water tip3p -o initial.gro
+
+# edit box size
+gmx editconf -f initial.gro -bt cubic -box 2.7 2.7 2.7 -o cubic.gro
+
+# add water to box #command split into solvate & insert-moleculesS
+gmx solvate -cp cubic.gro -cs spc216.gro -p topol.top -o water.gro
+
+#energy minimization
+gmx grompp -f minim.mdp -c water.gro -p topol.top -o em.tpr
+gmx mdrun -v -deffnm em
+
+#Equilibirum NVT
+gmx grompp -f mdSolventNVT.mdp -c em.gro -r em.gro -p topol.top -o nvt.tpr
+gmx mdrun -v -deffnm nvt -nt 10
+
+#Equilibrium NPT #-t flag to include checkpoint file from NVT (conserve velocities)
+gmx grompp -f mdSolventNPT.mdp -c nvt.gro -r nvt.gro -t nvt.cpt -p topol.top -o npt.tpr
+gmx mdrun -v -deffnm npt -nt 10
+
+# compile md parameters
+gmx grompp -f mdSolventVrescale.mdp  -c npt.gro -t npt.cpt -p topol.top -o md.tpr
+
+# run simulation
+#Checkpoint 30, threads 10
+gmx mdrun -v -deffnm md -nt 10 -cpt 30
+
+
+#save and reduce trajectory
+/*************************************************************/
+#creates idx file, after executing you can choose which groups you want to select (delete alls others)
+gmx make_ndx -f md.gro -o name.ndx
+
+#splits trajectory or topology (.trr, .gro or others) into groups, specified by idx.ndx and saves as .trr or .gro (or others)
+#option -skip n -> only takes every n-th timestep
+#option recenter of mass -center -pbc nojump -ur compact (5 for center, 0 for output)
+#Example: gmx trjconv -s CG_alanine_FM_10k_10ns.gro -f CG_alanine_FM_10k_10ns.gro -o test3.gro -center -pbc nojump -ur compact
+
+gmx trjconv -s md.gro -f md.trr -n name.ndx -force -o nameMD.trr (split trajectory, to remove the SOL) 
+#Example: gmx trjconv -s md.gro -f md.trr -n heavy.ndx -force -o heavyMD.trr
+
+#calculate dihedrals
+gmx rama -f md.trr -s md.tpr -o output.xvg

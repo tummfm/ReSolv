@@ -1,0 +1,91 @@
+#Variables
+
+# in time steps
+variable Nequ		equal 	10000
+variable Nprod		equal 	2000000  # 1.e6
+variable Nprint     equal   1000  # every
+
+# time averages
+variable Nf 		equal 	${Nprod}/1000
+variable Nr 		equal 	10		#take 10 saples
+variable Ne 		equal 	${Nf}/${Nr}	#every # timesteps
+
+# state point
+variable temperature equal 1.0
+variable box_length  equal 10
+variable atoms       equal 1000
+
+# Initialization
+
+units		lj
+atom_style	atomic
+pair_style	lj/cut 2.5
+boundary	p p p 
+
+
+# System definition
+
+#random init + minimize energy
+region            myreg block 0.0 ${box_length} 0.0 ${box_length} 0.0 ${box_length}
+create_box        1 myreg
+create_atoms      1 random ${atoms} 341341 myreg
+
+#lattic init + equilibirum nve/nvt
+# style: fcc or sc, scale=reduced density
+## lattice fcc 0.2
+# lattice     sc 1.0
+# variable side      equal 3.0
+# region      boxid block 0.0 ${side} 0.0 ${side} 0.0 ${side}
+# create_box  1 boxid
+# create_atoms 1 box
+
+# Simulation settings
+
+mass 1 1.0
+#  epsilon = 1.0, sigma = 1.0, cutoff = 2.5
+pair_coeff        1 1 1.0 1.0 2.5
+velocity all create 1.0 87287 dist gaussian
+
+neighbor 0.3 bin
+neigh_modify every 1 delay 0 check yes  # runtime optimization potential
+
+# Run  Equilibrium
+
+# for random init
+thermo		10
+minimize	1.0e-4 1.0e-6 1000 10000
+# minimize 0.0 1.0e-8 1000 100000
+
+# normalize thermo properties by number of atoms (yes or no)
+reset_timestep 0
+timestep	0.005
+
+fix     NVE all nve
+thermo 100
+run		${Nequ}
+unfix NVE
+
+# t_start, t_stop, damping: around 100*dt
+fix     NVT all nvt temp ${temperature} ${temperature} 0.1
+thermo 100
+run		${Nequ}
+unfix NVT
+
+# Run
+
+reset_timestep 0
+timestep	0.005
+
+fix     NVT all nvt temp ${temperature} ${temperature} 0.1
+
+compute        presstensor all pressure NULL virial
+
+dump trj all custom ${Nprint} n_${atoms}_t_${temperature}_l_${box_length}.trj id type x y z fx fy fz
+dump_modify trj sort id
+
+thermo_style custom step etotal temp press density vol c_presstensor[*]
+# normalize thermo properties by number of atoms (yes or no)
+thermo_modify flush yes norm no
+
+thermo ${Nprint}
+run ${Nprod}

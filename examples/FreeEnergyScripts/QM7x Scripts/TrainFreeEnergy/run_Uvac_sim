@@ -1,0 +1,5 @@
+python HFE_debug_sim.py 1 7 0 1 &
+python HFE_debug_sim.py 2 7 1 2 &
+python HFE_debug_sim.py 3 7 2 3 &
+python HFE_debug_sim.py 4 7 3 4 &
+python HFE_debug_sim.py 5 7 4 5 &

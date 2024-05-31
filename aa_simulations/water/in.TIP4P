@@ -1,0 +1,199 @@
+## -var Tset $T1 -var DensSet $DensSet1
+#-----------------------------------------------------------------
+#-------------------------DEF MODEL-------------------------------
+#-----------------------------------------------------------------
+units real
+atom_style full
+read_data data.TIP4P_1000.txt
+
+#force field (could be seperate file forcefield.TIP4P)
+pair_style lj/cut/tip4p/long 1 2 1 1 0.1546 8.5
+#pair_modify tail yes
+kspace_style pppm/tip4p 1.0e-5
+
+pair_coeff 1 1 0.18520 3.1589
+pair_coeff 2 2 0.0 0.0
+pair_coeff 1 2 0.0 0.0	
+
+bond_style harmonic
+bond_coeff 1 0.0 0.9572
+
+angle_style harmonic
+angle_coeff 1 0.0 104.52
+
+variable nAvog equal 6.0221415e23 # Avogadro's number
+variable A3_in_cm3 equal 1e-24 # Angstrom^3 in cm^3
+variable A_in_m equal 1e-10 # Angstrom in meter
+variable atm_in_Pa equal 101325 # note: 1 Pa = 1 N/m^2
+variable N_in_mN equal 1e3 # Newton in milliNewton
+variable convFac equal ${A_in_m}*${atm_in_Pa}*${N_in_mN}
+#-----------------------------------------------------------------
+#-------------------------LENGTH----------------------------------
+#-----------------------------------------------------------------
+variable Nequ0		equal 	0.5e4#4 	#0.5e4=0.01ns
+variable Nequ		equal 	0.5e5#3e3#5 	#0.5e5=0.1ns
+variable Nprod		equal 	0.5e6#6	#0.5e6=1ns #0.5e7=10ns
+
+variable Nf 		equal 	${Nprod}/500	#1e3=2ps   print averages 
+variable Nr 		equal 	10		#take 10 saples
+variable Ne 		equal 	${Nf}/${Nr}	#every # timesteps
+variable Nr_rdf     equal   0.5*${Nprod}/${Ne} #take x samples
+
+#-----------------------------------------------------------------
+#----------------------------UNITS--------------------------------
+#-----------------------------------------------------------------
+#mass=g/mole, d = A, t = fs, E = Kcal/mole, v = A/fs, f = Kcal/mole-A, M = Kcal/mole
+#T = K, p = atm, dynamic viscosity = Poise, e = e0, density = g/cm^3
+variable MoleMass	equal	18.01528
+variable Mass1		equal	15.9994
+variable Mass2		equal	1.00794
+variable rcut		equal	8.5
+variable skin		equal	2.0
+variable T_coup		equal	200.0	#200fs
+variable P_coup0	equal   1000.0	#500fs
+variable P_coup		equal	500.0	#500fs
+
+mass 1 ${Mass1} 
+mass 2 ${Mass2} 
+
+neighbor ${skin} bin
+neigh_modify every 1 delay 0 check yes
+#-----------------------------------------------------------------
+#-------------------------TD STATE--------------------------------
+#-----------------------------------------------------------------
+variable Tset 		equal 	298.0
+variable DensSet 	equal 	0.997 
+variable Pset		equal	1.0
+#-----------------------------------------------------------------
+#-------------------------SYSTEM----------------------------------
+#-----------------------------------------------------------------
+variable nAtoms equal atoms
+variable nMolecules equal atoms/3 
+
+group oxygen type 1
+
+# scale box to match a target density
+# variable factor equal (${nMolecules}*${MoleMass}/${nAvog}/(lx*ly*lz*${A3_in_cm3}))/${DensSet}
+# change_box all z scale ${factor} remap
+
+variable Dens equal ${nMolecules}*${MoleMass}/${nAvog}/(lx*ly*lz*${A3_in_cm3})
+print "Density equal= ${Dens} vs. set density ${DensSet}"
+
+velocity all create ${Tset} 1234 dist gaussian
+#-----------------------------------------------------------------
+#------------------------- EQU NVT -------------------------------
+#-----------------------------------------------------------------
+reset_timestep 0
+timestep 0.2				#2.0fs why 0.2??
+
+fix NVT all nvt temp ${Tset} ${Tset} ${T_coup}
+fix removeMomentum all momentum 1 linear 1 1 1
+fix constrain all rattle 1.0e-4 50 0 b 1 a 1 ###tol maxIter Nstat b bty a aty ###before ansamble style!!
+
+variable timeps equal time/1000
+
+thermo ${Nf}
+#thermo_style custom v_timeps temp press pe #using this does not allow later for LOGFILE access through python
+
+run ${Nequ0}
+#-----------------------------------------------------------------
+#------------------------- EQU NVT -------------------------------
+#-----------------------------------------------------------------
+#reset_timestep 0
+#timestep 2.0				#2.0fs
+
+#thermo ${Nf}
+#thermo_style custom v_timeps temp press 
+
+#run ${Nequ}
+unfix constrain
+unfix NVT
+#-----------------------------------------------------------------
+#------------------------- EQU NPT -------------------------------
+#-----------------------------------------------------------------
+reset_timestep 0
+timestep 2.0				#2.0fs
+
+fix NPT all npt temp ${Tset} ${Tset} ${T_coup} iso ${Pset} ${Pset} ${P_coup0}
+fix constrain all rattle 1.0e-4 50 0 b 1 a 1 ###tol maxIter Nstat b bty a aty ###after ansamble style!!
+
+thermo ${Nf}
+thermo_style custom v_timeps temp press vol density
+#thermo_modify flush yes
+
+run ${Nequ}
+unfix constrain
+unfix NPT
+#-----------------------------------------------------------------
+#-------------------------ANALYSIS--------------------------------
+#-----------------------------------------------------------------
+reset_timestep 0
+timestep 2.0				#2.0fs
+
+#fix NPT all npt temp ${Tset} ${Tset} ${T_coup} iso ${Pset} ${Pset} ${P_coup}
+fix NVT all nvt temp ${Tset} ${Tset} ${T_coup} 
+fix constrain all rattle 1.0e-4 50 0 b 1 a 1 ###tol maxIter Nstat b bty a aty ###after ansamble style!!
+
+#TEMPERATURE
+compute T all temp
+fix TAve all ave/time ${Ne} ${Nr} ${Nf} c_T 
+
+#PRESSURE
+#variable P equal press
+#fix PAve all ave/time ${Ne} ${Nr} ${Nf} v_P #file pressure_10ns.txt
+
+
+#DENSITYS
+variable Dens equal density
+fix DensAve all ave/time ${Ne} ${Nr} ${Nf} v_Dens #file density.txt
+
+#VOLUMEN
+variable V equal vol
+fix VAve all ave/time ${Nf} 1 ${Nf} v_V #file volume.txt 	#no averaging
+
+#compute	msd oxygen msd com yes
+#fix msd oxygen ave/time 1 1 500 c_msd[4] file wat.msd
+
+compute newRDF all rdf 1000 1 1 # oxygen-oxygen
+fix RDFAve all ave/time ${Ne} ${Nr_rdf} ${Nprod} c_newRDF[*] mode vector file data/RDF/wat_1nsfinal.rdf 
+
+
+#ENTHALPY [kcal/mol]
+#variable H equal enthalpy
+#fix HAve all ave/time ${Nf} 1 ${Nf} v_H file enthalpy.txt	#no averaging
+
+# outputs:
+#dump h5md1 all h5md 1000 dump_h5md.h5 position force
+
+#-----------------------------------------------------------------
+#----------------------------RUN----------------------------------
+#-----------------------------------------------------------------
+#thermo_style custom v_timeps temp f_TAve press v_stress2press f_PAve  c_pv v_virial#density f_DensAve vol f_VAve#enthalpy f_HAve 
+#thermo_style custom step temp f_TempAve press f_PressAve f_PEAve_Mol f_DensAve 
+
+compute        myStress all stress/atom NULL virial
+compute        stresstensor all reduce sum c_myStress[1] c_myStress[2] c_myStress[3] c_myStress[4] c_myStress[5] c_myStress[6]
+#variable       virial equal -(c_vp[1]+c_vp[2]+c_vp[3])/(3*vol)
+
+
+compute        presstensor all pressure NULL virial
+
+
+#dump trj all custom 10 simple.trj id
+
+
+dump trj all custom 500 data/trj/tip4p_1nsfinal.trj id mol type x y z fx fy fz
+dump_modify trj sort id
+
+
+thermo_style   custom step temp press c_stresstensor[*] c_presstensor[*] #vol#v_virial c_pv c_kep ke#c_p[1] c_vp[1] #c_myStress
+
+
+thermo_modify flush yes
+#thermo ${Nf}
+thermo 500
+
+run ${Nprod}
+
+write_data data/restart/tip4p1ns_1nsfinal.dat #final configuration
+#write_restart data/restart/tip4p500ps2.rest #restart file
