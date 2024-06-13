@@ -1,1 +1,0 @@
-for f in 220ps*; do mv "$f" "$(echo "$f" | sed s/220ps/250_50ps/)"; done

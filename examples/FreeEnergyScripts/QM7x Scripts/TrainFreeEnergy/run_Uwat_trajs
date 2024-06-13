@@ -1,8 +1,0 @@
-python HFE_training_frontend.py 0 7 0 68 &
-python HFE_training_frontend.py 1 7 68 136 &
-python HFE_training_frontend.py 2 7 136 204 &
-python HFE_training_frontend.py 3 7 204 272 &
-python HFE_training_frontend.py 4 7 272 340 &
-python HFE_training_frontend.py 5 7 340 408 &
-python HFE_training_frontend.py 6 7 408 476 &
-python HFE_training_frontend.py 7 7 476 544

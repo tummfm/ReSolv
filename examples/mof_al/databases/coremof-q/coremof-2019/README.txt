@@ -1,1 +1,0 @@
-python filter_elements.py ct0c01229_si_006/MOFs_cifs_data_ddec_charges filtered_10x -e Re Pu Ge As Se Sn Rh Hf Pb Rb Np Hg Bi Pd Th Ti Au
