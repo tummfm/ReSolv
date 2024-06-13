@@ -1,0 +1,1 @@
+python BAR_HFE_training.py 7 7 500 1e-6 1e-1 > "log_files/output_il1emin6_lrd1emin1_500epochs.log"
