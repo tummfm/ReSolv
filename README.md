@@ -53,10 +53,20 @@ For questions, you can reach out to s.roecken@tum.de
 ## Citation
 If you use our paper, the corresponding citation is:
 ```
-@article{rocken_ReSolv,
-  title={Predicting solvation free energies with an implicit solvent machine learning potential},
-  author={R{\"o}cken, Sebastien and Burnet, Anton F and Zavadlav, Julija},
-  journal={arXiv preprint arXiv:2406.00183},
-  year={2024}
+@article{10.1063/5.0235189,
+    author = {Röcken, Sebastien and Burnet, Anton F. and Zavadlav, Julija},
+    title = {Predicting solvation free energies with an implicit solvent machine learning potential},
+    journal = {The Journal of Chemical Physics},
+    volume = {161},
+    number = {23},
+    pages = {234101},
+    year = {2024},
+    month = {12},
+    issn = {0021-9606},
+    doi = {10.1063/5.0235189},
+    url = {https://doi.org/10.1063/5.0235189},
+    eprint = {https://pubs.aip.org/aip/jcp/article-pdf/doi/10.1063/5.0235189/20300206/234101\_1\_5.0235189.pdf},
 }
+
+
 ```
